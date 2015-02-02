@@ -301,17 +301,44 @@ describe 'glance::registry' do
     end
   end
 
-  describe 'with deprecated sql parameters' do
+
+  describe 'with identity and auth settings' do
     let :params do
-      default_params.merge({
-        :sql_connection   => 'mysql://user:pass@db/db',
-        :sql_idle_timeout => '30'
-      })
+      {
+        :keystone_password => 'ChangeMe',
+      }
+    end
+    context 'with custom keystone identity_uri' do
+      before do
+        params.merge!({
+          :identity_uri => 'https://foo.bar:1234/',
+        })
+      end
+      it 'configures identity_uri' do
+        should contain_glance_registry_config('keystone_authtoken/identity_uri').with_value("https://foo.bar:1234/");
+        # since only auth_uri is set the deprecated auth parameters should
+        # still get set in case they are still in use
+        should contain_glance_registry_config('keystone_authtoken/auth_host').with_value('127.0.0.1');
+        should contain_glance_registry_config('keystone_authtoken/auth_port').with_value('35357');
+        should contain_glance_registry_config('keystone_authtoken/auth_protocol').with_value('http');
+      end
     end
 
-    it 'configures database' do
-      should contain_glance_registry_config('database/connection').with_value('mysql://user:pass@db/db')
-      should contain_glance_registry_config('database/idle_timeout').with_value('30')
+    context 'with custom keystone identity_uri and auth_uri' do
+      before do
+        params.merge!({
+          :identity_uri => 'https://foo.bar:35357/',
+          :auth_uri => 'https://foo.bar:5000/v2.0/',
+        })
+      end
+      it 'configures identity_uri' do
+        should contain_glance_registry_config('keystone_authtoken/identity_uri').with_value("https://foo.bar:35357/");
+        should contain_glance_registry_config('keystone_authtoken/auth_uri').with_value("https://foo.bar:5000/v2.0/");
+        should contain_glance_registry_config('keystone_authtoken/auth_host').with_ensure('absent')
+        should contain_glance_registry_config('keystone_authtoken/auth_port').with_ensure('absent')
+        should contain_glance_registry_config('keystone_authtoken/auth_protocol').with_ensure('absent')
+        should contain_glance_registry_config('keystone_authtoken/auth_admin_prefix').with_ensure('absent')
+      end
     end
   end
 
